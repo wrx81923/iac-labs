@@ -18,28 +18,141 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash
         working-directory: ./example-app
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python 3.10
+    - name: Set up Python 3.13
       uses: actions/setup-python@v3
       with:
-        python-version: "3.10"
+        python-version: "3.13"
     - name: Install Poetry Action
-      uses: snok/install-poetry@v1.4.1
+      uses: snok/install-poetry@v1.3.4
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
+        poetry install --no-root
+    - name: Cache build venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: /home/runner/work/iac-labs/iac-labs/example-app/.venv
+        key: ${{ runner.os }}-venv
+
+  lint:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./example-app
+    needs: build
+    concurrency: 
+      group: lint
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+    - name: Install dependencies
       run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
+        poetry install --no-root
+    - name: Recover cached dependencies
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: /home/runner/work/iac-labs/iac-labs/example-app/.venv
+        key: ${{ runner.os }}-venv
+    - name: Lint
+      run: | 
+        poetry run task lint
+        
+  formatter:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./example-app
+    needs: build
+    concurrency: 
+      group: formatter
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+    - name: Install dependencies
       run: |
-        pytest
+        poetry install --no-root
+    - name: Recover cached dependencies
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: /home/runner/work/iac-labs/iac-labs/example-app/.venv
+        key: ${{ runner.os }}-venv
+    - name: Formatter
+      run: | 
+        poetry run task formatter
+
+  security:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./example-app
+    needs: build
+    concurrency: 
+      group: security
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+    - name: Install dependencies
+      run: |
+        poetry install --no-root
+    - name: Recover cached dependencies
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: /home/runner/work/iac-labs/iac-labs/example-app/.venv
+        key: ${{ runner.os }}-venv
+    - name: Security
+      run: |
+        poetry run task security
+  
+  unittests:
+
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./example-app
+    needs: [lint, formatter, security]
+    concurrency: static-tests
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+    - name: Install dependencies
+      run: |
+        poetry install --no-root
+    - name: Recover cached dependencies
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: /home/runner/work/iac-labs/iac-labs/example-app/.venv
+        key: ${{ runner.os }}-venv
+    - name: unittests
+      run: |
+        poetry run task test
